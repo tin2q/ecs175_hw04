@@ -40,6 +40,7 @@ void load_obj(const char* filename, Mesh* mesh) {
       a--; b--; c--;
       mesh->elements.push_back(a); mesh->elements.push_back(b); mesh->elements.push_back(c);
     }
+    else if (line[0] == '#'){ }
     else { }
   }
 

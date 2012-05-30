@@ -21,13 +21,14 @@ int H=600;  /* window height */
 void display() {
 
   // black background
-  glClearColor(0.0, 0.0, 0.0, 0.0); 
+  glClearColor(0.0, 1.0, 0.0, 0.0); 
 
   // clear both the frame buffer and the depth buffer
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   /* put plant drawing code here */
   drawScene();
+  drawCow();
   /* end drawing code */
 
   // Swap the screen (forces drawing, and used for animation)

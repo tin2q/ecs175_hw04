@@ -19,7 +19,11 @@ GLint attribute_coord3d;
 GLint attribute_texcoord;
 GLint uniform_proj_matrix;  // pointer to uniform variable - total matrix
 GLint uniform_texture;
-//GLint attribute_normal;
+GLint uniform_color;
+GLint attribute_normals;
+
+GLuint vbo_vertices, vbo_normals, ibo_elements;
+Mesh cow;
 
 glm::mat4 projMatrix; // Current total transform
 
@@ -209,6 +213,13 @@ int init_resources()
     return 0;
   }
 
+  // Ask for the normal
+//  attribute_normals = glGetAttribLocation(program, "normals");
+//  if (attribute_normals == -1) {
+//    fprintf(stderr, "Could not bind attribute normals\n");
+//    return 0;
+//  }
+
   uniform_texture = glGetUniformLocation(program, "u_texture");
   if (uniform_texture == -1) {
     fprintf(stderr, "Could not bind uniform u_texture \n");
@@ -221,6 +232,15 @@ int init_resources()
     fprintf(stderr, "Could not bind uniform variable m_proj \n");
     return 0;
   }
+
+  //Get color
+  //uniform_color = glGetUniformLocation(program, "v_color");
+  //if (uniform_color == -1){
+  //  fprintf(stderr, "Could not bind uniform variable v_color\n");
+  //  return 0;
+  //}
+
+  load_obj("cowScaled.obj", &cow);
 
   // If all went well....
   return 1;
@@ -275,6 +295,61 @@ void drawScene(void) {
   glDisableVertexAttribArray(attribute_texcoord);
 }
 
+void drawCow(void) {
+
+  // Send the program to the GPU
+  // Now hook up input data to program.
+  // Only attribute for the vertex is position. 
+  glEnableVertexAttribArray(attribute_coord3d);
+  //glEnableVertexAttribArray(attribute_normals);
+  //glEnableVertexAttribArray(attribute_color);
+  glGenBuffers(1, &vbo_vertices);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
+  glBufferData(GL_ARRAY_BUFFER, cow.vertices.size() * sizeof(cow.vertices[0]), cow.vertices.data(), GL_STATIC_DRAW);
+  
+  // Describe the position attribute and where the data is in the array
+  glVertexAttribPointer(
+    attribute_coord3d, // attribute ID
+    4,                 // number of elements per vertex, here (x,y,z)
+    GL_FLOAT,          // the type of each element
+    GL_FALSE,          // take our values as-is, don't normalize
+    0,  // stride between one position and the next
+    0  // pointer to first position in the C array
+  );
+
+  //glGenBuffers(1, &vbo_normals);
+  //glBindBuffer(GL_ARRAY_BUFFER, vbo_normals);
+  //glBufferData(GL_ARRAY_BUFFER, cow.normals.size() * sizeof(cow.normals[0]), cow.normals.data(), GL_STATIC_DRAW);
+/*
+  glVertexAttribPointer(
+    attribute_normals, //attribute
+    3,
+    GL_FLOAT,
+    GL_FALSE,
+    0,
+    0
+  );
+*/
+
+  // give the matrix a value
+  glUniformMatrix4fv(uniform_proj_matrix, 1, GL_FALSE, glm::value_ptr(projMatrix));
+  //glUniformMatrix4fv(uniform_nmatrix, 1, GL_FALSE, glm::value_ptr(turtleMatrix));
+  //glUniform3f(uniform_color, 1, 1, 1);
+  glUniform3f(uniform_color, 0.45,0.29,0.07);
+
+
+  glGenBuffers(1, &ibo_elements);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_elements);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, cow.elements.size() * sizeof(cow.elements[0]), cow.elements.data(), GL_STATIC_DRAW);
+  int size;
+  glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+  glDrawElements(GL_TRIANGLES, size/sizeof(GLuint), GL_UNSIGNED_INT, 0);
+
+  // Done with the attribute
+  glDisableVertexAttribArray(attribute_coord3d);
+  glDisableVertexAttribArray(attribute_normals);
+  //glDisableVertexAttribArray(attribute_color);
+}
 
 void free_resources()
 {

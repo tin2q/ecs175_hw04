@@ -1,6 +1,7 @@
 /* Functions implemented in draw.h */
 
 void drawScene(void);
+void drawCow(void);
 int init_resources(void);
 void free_resources(void);
 
