@@ -53,16 +53,16 @@ void keyPressed (unsigned char key, int x, int y) {
 	moveCameraLR(-0.2); 
   }
   else if(key == 'q'){ //rotate
-	rotateCamera(-0.1);
+	rotateCamera(-M_PI/100);
   }
   else if(key == 'e'){ //rotate
-	rotateCamera(0.1);
+	rotateCamera(M_PI/100);
   }
   else if(key == 'r'){
-	tiltCamera(-0.1);
+	tiltCamera(-M_PI/100);
   }
   else if(key == 'f'){
-	tiltCamera(0.1);
+	tiltCamera(M_PI/100);
   }
   else if(key == 'o'){
 	resetCamera();
