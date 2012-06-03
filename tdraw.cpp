@@ -20,9 +20,13 @@ GLint attribute_texcoord;
 GLint uniform_proj_matrix;  // pointer to uniform variable - total matrix
 GLint uniform_texture;
 GLint uniform_color;
+GLint uniform_tex_enabler;
+
+
 GLint attribute_normals;
 
 GLuint vbo_vertices, vbo_normals, ibo_elements;
+GLuint vbo_floor, vbo_floor_texcoords, ibo_floor_elements;
 Mesh cow;
 
 glm::mat4 projMatrix; // Current total transform
@@ -35,19 +39,31 @@ GLuint textureId;
 int size = 4; // number of triangles to draw in scene
 
 GLfloat vertices[] = {
-  -4, -4, 0.0, -2.0, -2.0, 
-  4, -4, 0.0, 2.0, -2.0, 
-  4, 4, 0.0, 2.0, 2.0, 
-  -4, 4, 0.0, -2.0, 2.0,
+  -4, -4, 0.0, 
+  4, -4, 0.0, 
+  4, 4, 0.0, 
+  -4, 4, 0.0, 
 
-    -20, -4, -25, -10.0, -12.5,
-    20, -4, -25, 10.0, -12.5,
-    20, -4, 25, 10.0, 12.5, 
-    -20, -4, 25, -10.0, 12.5
+    -20, -4, -25,
+    20, -4, -25, 
+    20, -4, 25, 
+    -20, -4, 25
+};
+
+GLfloat tex_vertices[] = {
+	-2.0, -2.0, 
+	2.0, -2.0, 
+	2.0, 2.0, 
+	-2.0, 2.0,
+
+    -10.0, -12.5,
+     10.0, -12.5,
+     10.0, 12.5, 
+    -10.0, 12.5
 };
 
 
-  GLubyte elements[] = {
+GLubyte elements[] = {
     0, 1, 2,
     2, 3, 0,
     4, 5, 6,
@@ -57,6 +73,11 @@ GLfloat vertices[] = {
 // global matricies
 // specify by columns
 
+  // Current total transformation
+glm::mat4 totalMatrix;
+
+// Current turtle part of the transformation
+glm::mat4 turtleMatrix;
 // move cube into box centered at (0,0,-5)
 glm::mat4 view  = glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0),
 			     glm::vec4(0.0, 1.0, 0.0, 0.0),
@@ -137,6 +158,24 @@ int init_resources()
 {
   // Projection matrix
   projMatrix = proj * view;
+
+  // total matrix for the cow is formed by multiplying projection by turtle
+  totalMatrix = proj * view * turtleMatrix;
+
+
+  glGenBuffers(1, &vbo_floor);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_floor);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  glGenBuffers(1, &vbo_floor_texcoords);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_floor_texcoords);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(tex_vertices), tex_vertices, GL_STATIC_DRAW);
+  
+  glGenBuffers(1, &ibo_floor_elements);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_floor_elements);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
+
+
 
   // Read in texture image
   int flag = ImageLoad("grass.bmp", &texImage);
@@ -233,6 +272,14 @@ int init_resources()
     return 0;
   }
 
+  uniform_tex_enabler = glGetUniformLocation(program, "tex_enabler");
+  if (uniform_tex_enabler == -1) {
+    fprintf(stderr, "Could not bind uniform variable v_tex_enabler \n");
+    return 0;
+  }
+
+
+
   //Get color
   //uniform_color = glGetUniformLocation(program, "v_color");
   //if (uniform_color == -1){
@@ -241,6 +288,14 @@ int init_resources()
   //}
 
   load_obj("cowScaled.obj", &cow);
+
+  glGenBuffers(1, &vbo_vertices);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
+  glBufferData(GL_ARRAY_BUFFER, cow.vertices.size() * sizeof(cow.vertices[0]), cow.vertices.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &ibo_elements);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_elements);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, cow.elements.size() * sizeof(cow.elements[0]), cow.elements.data(), GL_STATIC_DRAW);
 
   // If all went well....
   return 1;
@@ -255,6 +310,13 @@ void drawScene(void) {
   // Projection matrix
   projMatrix = proj * view;
 
+  glActiveTexture(GL_TEXTURE0); // Load texture into GPU texture unit 0
+  glBindTexture(GL_TEXTURE_2D, textureId);
+  
+  // Tell GPU to use Texture Unit 0
+  glUniform1i(uniform_texture, 0);  
+  glUniform1i(uniform_tex_enabler, 1);
+
   // Now hook up input data to program.
 
   // Two attributes for the vertex, position and texture coordinate
@@ -262,34 +324,58 @@ void drawScene(void) {
   glEnableVertexAttribArray(attribute_coord3d);
   glEnableVertexAttribArray(attribute_texcoord);
 
-
-  // Describe the position attribute and where the data is in the array
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_floor);
+  //   Describe the position attribute and where the data is in the array
   glVertexAttribPointer(
     attribute_coord3d, // attribute ID
     3,                 // number of elements per vertex, here (x,y,z)
     GL_FLOAT,          // the type of each element
     GL_FALSE,          // take our values as-is, don't normalize
-    5*sizeof(float),  // stride between one position and the next
-    vertices  // pointer to first position in the C array
+    0,  // stride between one position and the next
+    0  // pointer to first position in the C array
   );
 
+  // Describe the position attribute and where the data is in the array
+  //glVertexAttribPointer(
+  //  attribute_coord3d, // attribute ID
+  //  3,                 // number of elements per vertex, here (x,y,z)
+  //  GL_FLOAT,          // the type of each element
+  //  GL_FALSE,          // take our values as-is, don't normalize
+  //  3*sizeof(float),  // stride between one position and the next
+  //  vertices  // pointer to first position in the C array
+  //);
+
+  //glVertexAttribPointer(
+  //  attribute_texcoord, // attribute
+  //  2,                  // number of elements per vertex, (s,t)
+  //  GL_FLOAT,           // the type of each element
+  //  GL_FALSE,           // take our values as-is
+  //  2*sizeof(float),    // stride to next texture element
+  //  tex_vertices              // offset of first element
+  //);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_floor_texcoords);
+  //   Describe the position attribute and where the data is in the array
   glVertexAttribPointer(
-    attribute_texcoord, // attribute
-    2,                  // number of elements per vertex, (s,t)
-    GL_FLOAT,           // the type of each element
-    GL_FALSE,           // take our values as-is
-    5*sizeof(float),    // stride to next texture element
-    vertices+3              // offset of first element
+    attribute_texcoord, // attribute ID
+    2,                 // number of elements per vertex, here (s,t)
+    GL_FLOAT,          // the type of each element
+    GL_FALSE,          // take our values as-is, don't normalize
+    0,  // stride between one position and the next
+    0  // pointer to first position in the C array
   );
+
 
   // Send GPU projection matrix
   glUniformMatrix4fv(uniform_proj_matrix, 1, GL_FALSE, glm::value_ptr(projMatrix));
 
-  // Tell GPU to use Texture Unit 0
-  glUniform1i(uniform_texture, 0);  
 
   // draw the wall....
-  glDrawElements(GL_TRIANGLES, size*3, GL_UNSIGNED_BYTE, elements);
+  //glDrawElements(GL_TRIANGLES, size*3, GL_UNSIGNED_BYTE, elements);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_floor_elements);
+  int size;
+  glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+  glDrawElements(GL_TRIANGLES, size/sizeof(GLubyte), GL_UNSIGNED_BYTE, 0);
 
   glDisableVertexAttribArray(attribute_coord3d);
   glDisableVertexAttribArray(attribute_texcoord);
@@ -298,14 +384,20 @@ void drawScene(void) {
 void drawCow(void) {
 
   // Send the program to the GPU
+  glUseProgram(program);
+  glUniform1i(uniform_tex_enabler, 0);
+
+  
+  totalMatrix = proj * view * turtleMatrix;
+
   // Now hook up input data to program.
   // Only attribute for the vertex is position. 
   glEnableVertexAttribArray(attribute_coord3d);
   //glEnableVertexAttribArray(attribute_normals);
   //glEnableVertexAttribArray(attribute_color);
-  glGenBuffers(1, &vbo_vertices);
+  //glGenBuffers(1, &vbo_vertices);
   glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
-  glBufferData(GL_ARRAY_BUFFER, cow.vertices.size() * sizeof(cow.vertices[0]), cow.vertices.data(), GL_STATIC_DRAW);
+  //glBufferData(GL_ARRAY_BUFFER, cow.vertices.size() * sizeof(cow.vertices[0]), cow.vertices.data(), GL_STATIC_DRAW);
   
   // Describe the position attribute and where the data is in the array
   glVertexAttribPointer(
@@ -332,22 +424,23 @@ void drawCow(void) {
 */
 
   // give the matrix a value
-  glUniformMatrix4fv(uniform_proj_matrix, 1, GL_FALSE, glm::value_ptr(projMatrix));
+  glUniformMatrix4fv(uniform_proj_matrix, 1, GL_FALSE, glm::value_ptr(totalMatrix));
+  
   //glUniformMatrix4fv(uniform_nmatrix, 1, GL_FALSE, glm::value_ptr(turtleMatrix));
   //glUniform3f(uniform_color, 1, 1, 1);
-  glUniform3f(uniform_color, 0.45,0.29,0.07);
+  //glUniform3f(uniform_color, 0.45,0.29,0.07);
 
 
-  glGenBuffers(1, &ibo_elements);
+//  glGenBuffers(1, &ibo_elements);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_elements);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, cow.elements.size() * sizeof(cow.elements[0]), cow.elements.data(), GL_STATIC_DRAW);
+//  glBufferData(GL_ELEMENT_ARRAY_BUFFER, cow.elements.size() * sizeof(cow.elements[0]), cow.elements.data(), GL_STATIC_DRAW);
   int size;
   glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
   glDrawElements(GL_TRIANGLES, size/sizeof(GLuint), GL_UNSIGNED_INT, 0);
 
   // Done with the attribute
   glDisableVertexAttribArray(attribute_coord3d);
-  glDisableVertexAttribArray(attribute_normals);
+  //glDisableVertexAttribArray(attribute_normals);
   //glDisableVertexAttribArray(attribute_color);
 }
 

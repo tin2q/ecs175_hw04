@@ -21,7 +21,7 @@ int H=600;  /* window height */
 void display() {
 
   // black background
-  glClearColor(0.0, 1.0, 0.0, 0.0); 
+  glClearColor(0.1, 0.5, 1.0, 0.0); 
 
   // clear both the frame buffer and the depth buffer
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -108,6 +108,8 @@ int main (int argc, char** argv) {
   }
 
   free_resources();
+  //for windows only, so that the console won't close too fast
+  system ("PAUSE");
   return 0;
 }
 
