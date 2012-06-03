@@ -29,6 +29,7 @@ void display() {
   /* put plant drawing code here */
   drawScene();
   drawCow();
+  drawCube();
   /* end drawing code */
 
   // Swap the screen (forces drawing, and used for animation)

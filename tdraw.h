@@ -2,6 +2,10 @@
 
 void drawScene(void);
 void drawCow(void);
+void drawCube(void);
+
+void moveObject(float x, float y,  float z);
+
 int init_resources(void);
 void free_resources(void);
 

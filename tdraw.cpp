@@ -21,28 +21,32 @@ GLint uniform_proj_matrix;  // pointer to uniform variable - total matrix
 GLint uniform_texture;
 GLint uniform_color;
 GLint uniform_tex_enabler;
-
+GLint uniform_norm_mat;
 
 GLint attribute_normals;
 
 GLuint vbo_vertices, vbo_normals, ibo_elements;
 GLuint vbo_floor, vbo_floor_texcoords, ibo_floor_elements;
+GLuint vbo_cube, vbo_cube_texcoords, ibo_cube_elements, vbo_cube_normals;
 Mesh cow;
+Mesh cube;
 
 glm::mat4 projMatrix; // Current total transform
 
 glm::vec4 cameraPosition = glm::vec4(0.0, 0.0, -5.0, 1.0);
 
 Image texImage;
+Image texImage2;
 GLuint textureId;
+GLuint textureId2;
 
 int size = 4; // number of triangles to draw in scene
 
 GLfloat vertices[] = {
-  -4, -4, 0.0, 
-  4, -4, 0.0, 
-  4, 4, 0.0, 
-  -4, 4, 0.0, 
+//  -4, -4, 0.0, 
+//  4, -4, 0.0, 
+//  4, 4, 0.0, 
+//  -4, 4, 0.0, 
 
     -20, -4, -25,
     20, -4, -25, 
@@ -51,10 +55,10 @@ GLfloat vertices[] = {
 };
 
 GLfloat tex_vertices[] = {
-	-2.0, -2.0, 
-	2.0, -2.0, 
-	2.0, 2.0, 
-	-2.0, 2.0,
+//	-2.0, -2.0, 
+//	2.0, -2.0, 
+//	2.0, 2.0, 
+//	-2.0, 2.0,
 
     -10.0, -12.5,
      10.0, -12.5,
@@ -75,14 +79,18 @@ GLubyte elements[] = {
 
   // Current total transformation
 glm::mat4 totalMatrix;
+glm::mat4 cubeTotalMatrix;
 
+glm::mat4 initialView;
 // Current turtle part of the transformation
 glm::mat4 turtleMatrix;
+glm::mat4 cubeMatrix;
+
 // move cube into box centered at (0,0,-5)
 glm::mat4 view  = glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0),
 			     glm::vec4(0.0, 1.0, 0.0, 0.0),
 			     glm::vec4(0.0, 0.0, 1.0, 0.0),
-			     glm::vec4(0.0, 0.0, -5.0, 1.0));
+			     glm::vec4(0.0, 0.0, -40.0, 1.0));
 
 // projection
 // n = near plane = -3
@@ -145,10 +153,7 @@ void tiltCamera(float angle) {
 }
 
 void resetCamera(){
-	view  = glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0),
-			     glm::vec4(0.0, 1.0, 0.0, 0.0),
-			     glm::vec4(0.0, 0.0, 1.0, 0.0),
-			     glm::vec4(0.0, 0.0, -5.0, 1.0));
+	view  = initialView;
 }
 
 
@@ -159,9 +164,30 @@ int init_resources()
   // Projection matrix
   projMatrix = proj * view;
 
+  initialView = view;
+
+  glm::mat4 scaleMatrix = glm::mat4(glm::vec4(5.0, 0.0, 0.0, 0.0),
+									glm::vec4(0.0, 5.0, 0.0, 0.0),
+									glm::vec4(0.0, 0.0, 5.0, 0.0),
+									glm::vec4(0.0, 0.0, 0.0, 1.0));
+
+  glm::mat4 translateMatrix = glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0),
+										glm::vec4(0.0, 1.0, 0.0, 0.0),
+										glm::vec4(0.0, 0.0, 1.0, 0.0),
+										glm::vec4(1.0, -0.2, 1.0, 1.0));
+
+  glm::mat4 translateMatrix2 = glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0),
+										glm::vec4(0.0, 1.0, 0.0, 0.0),
+										glm::vec4(0.0, 0.0, 1.0, 0.0),
+										glm::vec4(-1.0, -0.2, 1.0, 1.0));
+
+  //make the cow bigger
+  turtleMatrix = scaleMatrix * translateMatrix * turtleMatrix;
+  cubeMatrix = scaleMatrix * translateMatrix2 * cubeMatrix;
+
   // total matrix for the cow is formed by multiplying projection by turtle
   totalMatrix = proj * view * turtleMatrix;
-
+  cubeTotalMatrix = proj * view * cubeMatrix;
 
   glGenBuffers(1, &vbo_floor);
   glBindBuffer(GL_ARRAY_BUFFER, vbo_floor);
@@ -180,6 +206,11 @@ int init_resources()
   // Read in texture image
   int flag = ImageLoad("grass.bmp", &texImage);
   if (flag != 1) {
+    printf("Trouble reading image\n");
+  }
+
+  
+  if (ImageLoad("cubeTex.bmp", &texImage2) != 1) {
     printf("Trouble reading image\n");
   }
 
@@ -202,6 +233,26 @@ int init_resources()
 	       GL_UNSIGNED_BYTE, // type of incoming data
 	       texImage.data // pointer to the data
 	       ); 
+
+  //texture for cube
+  glActiveTexture(GL_TEXTURE1); // Load texture into GPU texture unit 0
+  glGenTextures(1,&textureId2); // Make a texture object
+  glBindTexture(GL_TEXTURE_2D, textureId2); // Use this object as the 
+  // current 2D texture
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  // Load the image into GPU texture memory
+  glTexImage2D(GL_TEXTURE_2D, // the current 2D texture
+	       0, // Mipmap level
+	       GL_RGB, //internal format for texture
+		   texImage2.sizeX, // size in s coord
+		   texImage2.sizeY, // size in t coord
+	       0, // should always be 0
+	       GL_RGB, // incoming data format; should match internal
+	       GL_UNSIGNED_BYTE, // type of incoming data
+	       texImage2.data // pointer to the data
+	       ); 
+
+
 
   // Error flag is initially false
   GLint link_ok = GL_FALSE;
@@ -253,11 +304,11 @@ int init_resources()
   }
 
   // Ask for the normal
-//  attribute_normals = glGetAttribLocation(program, "normals");
-//  if (attribute_normals == -1) {
-//    fprintf(stderr, "Could not bind attribute normals\n");
-//    return 0;
-//  }
+  attribute_normals = glGetAttribLocation(program, "normals");
+  if (attribute_normals == -1) {
+    fprintf(stderr, "Could not bind attribute normals\n");
+    return 0;
+  }
 
   uniform_texture = glGetUniformLocation(program, "u_texture");
   if (uniform_texture == -1) {
@@ -278,16 +329,21 @@ int init_resources()
     return 0;
   }
 
-
+  uniform_norm_mat = glGetUniformLocation(program, "normal_mat");
+  if (uniform_norm_mat == -1) {
+    fprintf(stderr, "Could not bind uniform variable normal_mat \n");
+    return 0;
+  }
 
   //Get color
-  //uniform_color = glGetUniformLocation(program, "v_color");
-  //if (uniform_color == -1){
-  //  fprintf(stderr, "Could not bind uniform variable v_color\n");
-  //  return 0;
-  //}
+  uniform_color = glGetUniformLocation(program, "v_color");
+  if (uniform_color == -1){
+    fprintf(stderr, "Could not bind uniform variable v_color\n");
+    return 0;
+  }
 
   load_obj("cowScaled.obj", &cow);
+  load_obj("cube.obj", &cube);
 
   glGenBuffers(1, &vbo_vertices);
   glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
@@ -297,6 +353,37 @@ int init_resources()
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_elements);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, cow.elements.size() * sizeof(cow.elements[0]), cow.elements.data(), GL_STATIC_DRAW);
 
+  glGenBuffers(1, &vbo_normals);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_normals);
+  glBufferData(GL_ARRAY_BUFFER, cow.normals.size() * sizeof(cow.normals[0]), cow.normals.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &vbo_cube);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_cube);
+  glBufferData(GL_ARRAY_BUFFER, cube.vertices.size() * sizeof(cube.vertices[0]), cube.vertices.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &ibo_cube_elements);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, cube.elements.size() * sizeof(cube.elements[0]), cube.elements.data(), GL_STATIC_DRAW);
+
+  glGenBuffers(1, &vbo_cube_normals);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_cube_normals);
+  glBufferData(GL_ARRAY_BUFFER, cube.normals.size() * sizeof(cube.normals[0]), cube.normals.data(), GL_STATIC_DRAW);
+  
+  GLfloat cube_texcoords[2*4*6] = {  
+     // front  
+     0.0, 0.0,  
+     1.0, 0.0,  
+     1.0, 1.0,  
+     0.0, 1.0,  
+   };  
+
+   for (int i = 1; i < 6; i++)  {
+     memcpy(&cube_texcoords[i*4*2], &cube_texcoords[0], 2*4*sizeof(GLfloat));  
+   }
+   glGenBuffers(1, &vbo_cube_texcoords);  
+   glBindBuffer(GL_ARRAY_BUFFER, vbo_cube_texcoords);  
+   glBufferData(GL_ARRAY_BUFFER, sizeof(cube_texcoords), cube_texcoords, GL_STATIC_DRAW); 
+  
   // If all went well....
   return 1;
 }
@@ -315,6 +402,7 @@ void drawScene(void) {
   
   // Tell GPU to use Texture Unit 0
   glUniform1i(uniform_texture, 0);  
+  //enable texture
   glUniform1i(uniform_tex_enabler, 1);
 
   // Now hook up input data to program.
@@ -393,7 +481,8 @@ void drawCow(void) {
   // Now hook up input data to program.
   // Only attribute for the vertex is position. 
   glEnableVertexAttribArray(attribute_coord3d);
-  //glEnableVertexAttribArray(attribute_normals);
+  glEnableVertexAttribArray(attribute_normals);
+
   //glEnableVertexAttribArray(attribute_color);
   //glGenBuffers(1, &vbo_vertices);
   glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
@@ -409,10 +498,8 @@ void drawCow(void) {
     0  // pointer to first position in the C array
   );
 
-  //glGenBuffers(1, &vbo_normals);
-  //glBindBuffer(GL_ARRAY_BUFFER, vbo_normals);
-  //glBufferData(GL_ARRAY_BUFFER, cow.normals.size() * sizeof(cow.normals[0]), cow.normals.data(), GL_STATIC_DRAW);
-/*
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_normals);
   glVertexAttribPointer(
     attribute_normals, //attribute
     3,
@@ -421,14 +508,14 @@ void drawCow(void) {
     0,
     0
   );
-*/
+
 
   // give the matrix a value
   glUniformMatrix4fv(uniform_proj_matrix, 1, GL_FALSE, glm::value_ptr(totalMatrix));
   
-  //glUniformMatrix4fv(uniform_nmatrix, 1, GL_FALSE, glm::value_ptr(turtleMatrix));
+  glUniformMatrix4fv(uniform_norm_mat, 1, GL_FALSE, glm::value_ptr(turtleMatrix));
   //glUniform3f(uniform_color, 1, 1, 1);
-  //glUniform3f(uniform_color, 0.45,0.29,0.07);
+  glUniform3f(uniform_color, 0.45,0.29,0.07);
 
 
 //  glGenBuffers(1, &ibo_elements);
@@ -440,12 +527,105 @@ void drawCow(void) {
 
   // Done with the attribute
   glDisableVertexAttribArray(attribute_coord3d);
-  //glDisableVertexAttribArray(attribute_normals);
-  //glDisableVertexAttribArray(attribute_color);
+  glDisableVertexAttribArray(attribute_normals);
+
 }
+
+void moveObject(float x, float y,  float z){
+	glm::mat4 scaleMatrix = glm::mat4(glm::vec4(5.0, 0.0, 0.0, 0.0),
+									glm::vec4(0.0, 5.0, 0.0, 0.0),
+									glm::vec4(0.0, 0.0, 5.0, 0.0),
+									glm::vec4(0.0, 0.0, 0.0, 1.0));
+
+	glm::mat4 translateMatrix = glm::mat4(glm::vec4(1.0, 0.0, 0.0, 0.0),
+										glm::vec4(0.0, 1.0, 0.0, 0.0),
+										glm::vec4(0.0, 0.0, 1.0, 0.0),
+										glm::vec4(x, y, z, 1.0));
+
+	turtleMatrix = translateMatrix * turtleMatrix;
+}
+
+void drawCube(void) {
+
+  // Send the program to the GPU
+  glUseProgram(program);
+  glUniform1i(uniform_tex_enabler, 1);
+
+  cubeTotalMatrix = proj * view * cubeMatrix;
+
+  // Now hook up input data to program.
+  // Only attribute for the vertex is position. 
+  glEnableVertexAttribArray(attribute_coord3d);
+  glEnableVertexAttribArray(attribute_normals);
+  glEnableVertexAttribArray(attribute_texcoord);
+
+  glActiveTexture(GL_TEXTURE1); // Load texture into GPU texture unit 0
+  glBindTexture(GL_TEXTURE_2D, textureId2); 
+  // Tell GPU to use Texture Unit 0
+  glUniform1i(uniform_texture, 1);  
+
+  //glEnableVertexAttribArray(attribute_color);
+  //glGenBuffers(1, &vbo_vertices);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_cube);
+  //glBufferData(GL_ARRAY_BUFFER, cow.vertices.size() * sizeof(cow.vertices[0]), cow.vertices.data(), GL_STATIC_DRAW);
+  
+  // Describe the position attribute and where the data is in the array
+  glVertexAttribPointer(
+    attribute_coord3d, // attribute ID
+    4,                 // number of elements per vertex, here (x,y,z)
+    GL_FLOAT,          // the type of each element
+    GL_FALSE,          // take our values as-is, don't normalize
+    0,  // stride between one position and the next
+    0  // pointer to first position in the C array
+  );
+
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_cube_normals);
+  glVertexAttribPointer(
+    attribute_normals, //attribute
+    3,
+    GL_FLOAT,
+    GL_FALSE,
+    0,
+    0
+  );
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_cube_texcoords);
+  glVertexAttribPointer(
+    attribute_texcoord, // attribute
+    2,                  // number of elements per vertex, here (s,t)
+    GL_FLOAT,           // the type of each element
+    GL_FALSE,           // take our values as-is
+    0,                  // no extra data between each position
+    0                   // offset of first element
+  );
+
+
+  // give the matrix a value
+  glUniformMatrix4fv(uniform_proj_matrix, 1, GL_FALSE, glm::value_ptr(cubeTotalMatrix));
+  
+  glUniformMatrix4fv(uniform_norm_mat, 1, GL_FALSE, glm::value_ptr(cubeMatrix));
+  //glUniform3f(uniform_color, 1, 1, 1);
+  glUniform3f(uniform_color, 0.45,0.29,0.07);
+
+
+//  glGenBuffers(1, &ibo_elements);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_cube_elements);
+//  glBufferData(GL_ELEMENT_ARRAY_BUFFER, cow.elements.size() * sizeof(cow.elements[0]), cow.elements.data(), GL_STATIC_DRAW);
+  int size;
+  glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
+  glDrawElements(GL_TRIANGLES, size/sizeof(GLuint), GL_UNSIGNED_INT, 0);
+
+  // Done with the attribute
+  glDisableVertexAttribArray(attribute_coord3d);
+  glDisableVertexAttribArray(attribute_normals);
+  glDisableVertexAttribArray(attribute_texcoord);
+}
+
 
 void free_resources()
 {
   glDeleteProgram(program);
   glDeleteTextures(1,&textureId);
+  glDeleteTextures(1,&textureId2);
 }
