@@ -11,8 +11,8 @@ varying vec4 f_color;
 
 void main(void) {    
 	vec4 color; 
-	vec4 light = vec4(1,1,2.0,1.0);
-		light = normalize(vec4(1.0,4.0,2.0,1.0));
+	vec4 light = vec4(1.5,2.0,1.0,1.0);
+		light = normalize(light);
 		float brightness = min(dot(f_normals,light),1);
 
 	if(tex_enabler == 0){

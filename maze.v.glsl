@@ -14,18 +14,9 @@ uniform mat4 m_proj;
 uniform mat4 normal_mat;
 
 void main(void) {        
-     
-//     f_color = vec4(v_color, 1.0);
-//     vec4 norm = vec4(normals, 1.0);
 
 	if(tex_enabler == 0){
-		//f_color = vec4(1,1,1,1.0);
 		f_normals = normalize(normal_mat * vec4(normals, 1.0));
-				//vec4 light = vec4(1,1,2.0,1.0);
-		//light = normalize(vec4(gl_LightSource[0].position.xyz,1.0));
-		//float brightness = max(dot(f_normals,light),0.0);
-
-		//vec4 color = vec4(brightness * vec3(0,0,1), 1.0);
 	}
 	else {
 		f_texcoord = texcoord;
